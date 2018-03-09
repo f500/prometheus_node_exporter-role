@@ -47,21 +47,31 @@
 - name: NODE_EXPORTER | Check node_exporter version
   command: node_exporter {{ option_bullet }}version
   register: node_exporter_check
-  changed_when: false
-  ignore_errors: true
+  changed_when: no
+  ignore_errors: yes
+
+- name: NODE_EXPORTER | Check if installation is needed
+  set_fact:
+    node_exporter_install: >-
+      {{
+      node_exporter_check|failed or (
+      'node_exporter, version ' + node_exporter_version not in node_exporter_check.stdout and
+      'node_exporter, version ' + node_exporter_version not in node_exporter_check.stderr
+      )
+      }}
 
 - name: NODE_EXPORTER | Download package
   get_url:
     url: "{{ node_exporter_url }}"
     dest: /tmp
-  when: 'node_exporter_force_reinstall or node_exporter_check|failed or "node_exporter, version {{ node_exporter_version }}" not in node_exporter_check.stdout'
+  when: node_exporter_install or node_exporter_force_reinstall
 
 - name: NODE_EXPORTER | Extract package
   unarchive:
     copy: no
     src: "/tmp/{{ node_exporter_package }}"
     dest: /tmp
-  when: 'node_exporter_force_reinstall or node_exporter_check|failed or "node_exporter, version {{ node_exporter_version }}" not in node_exporter_check.stdout'
+  when: node_exporter_install or node_exporter_force_reinstall
 
 - name: NODE_EXPORTER | Copy binary
   copy:
@@ -71,7 +81,7 @@
     group: "{{ node_exporter_group }}"
     remote_src: True
     mode: 0755
-  when: 'node_exporter_force_reinstall or node_exporter_check|failed or "node_exporter, version {{ node_exporter_version }}" not in node_exporter_check.stdout'
+  when: node_exporter_install or node_exporter_force_reinstall
   notify: restart node_exporter
 
 - name: NODE_EXPORTER | Link binary
